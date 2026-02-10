@@ -10,12 +10,12 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.widget.NestedScrollView;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -39,6 +39,7 @@ import java.util.function.Consumer;
 
 public class TaskActivity extends AppCompatActivity {
     private final Object answerLock = new Object();
+    private NestedScrollView nestedScrollView;
     private TextView logTextView;
     private Button actionButton;
     private StorageUtil storageUtil;
@@ -56,11 +57,7 @@ public class TaskActivity extends AppCompatActivity {
         // 保持屏幕常量
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        storageUtil = new StorageUtil(this);
-        initViews();
-    }
-
-    private void initViews() {
+        nestedScrollView = findViewById(R.id.nested_scroll_view);
         logTextView = findViewById(R.id.logTextView);
         actionButton = findViewById(R.id.actionButton);
 
@@ -76,11 +73,7 @@ public class TaskActivity extends AppCompatActivity {
             }
         });
 
-        List<User> users = storageUtil.getUserList();
-        // 显示总任务数
-        appendLog(String.format(Locale.getDefault(), "共有 %d 个用户任务待执行", users.size()));
-
-        taskThread = new TaskThread(users, storageUtil, this::appendLog, () -> runOnUiThread(() -> {
+        taskThread = new TaskThread(StorageUtil.getInstance(this), this::appendLog, () -> runOnUiThread(() -> {
             // 关闭屏幕常量
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             actionButton.setText("返回");
@@ -92,9 +85,8 @@ public class TaskActivity extends AppCompatActivity {
     private void appendLog(String log) {
         runOnUiThread(() -> {
             logTextView.append(log + "\n");
-            // 滚动到底部
-            ScrollView scrollView = (ScrollView) logTextView.getParent();
-            scrollView.post(() -> scrollView.fullScroll(View.FOCUS_DOWN));
+            // 滚动到底部 使用 NestedScrollView 提供的 fullScroll 方法
+            nestedScrollView.post(() -> nestedScrollView.fullScroll(View.FOCUS_DOWN));
         });
     }
 
@@ -178,7 +170,7 @@ public class TaskActivity extends AppCompatActivity {
         // 备用分享用户ID列表
         private static final String[] BACKUP_HIDS = {"a6688ec1a9ee429fa7b68d50e0c92b1f", "bb8cd2e44c7b45eeb8cc5f7fa71c3322", "5f640c50061b400c91be326c8fe0accd", "55a5d82dacd9417483ae369de9d9b82d"};
 
-        private final List<User> users;
+        private final List<User> userList;
         private final StorageUtil storageUtil;
         private final Consumer<String> logger;
         private final Runnable onComplete;
@@ -189,8 +181,8 @@ public class TaskActivity extends AppCompatActivity {
         // 新增成员变量
         private String historicalCorrectAnswer = null; // 历史正确答案
 
-        public TaskThread(List<User> users, StorageUtil storageUtil, Consumer<String> logger, Runnable onComplete, TaskActivity activity) {
-            this.users = users;
+        public TaskThread(StorageUtil storageUtil, Consumer<String> logger, Runnable onComplete, TaskActivity activity) {
+            this.userList = storageUtil.getUserList();
             this.storageUtil = storageUtil;
             this.logger = logger;
             this.onComplete = onComplete;
@@ -200,52 +192,57 @@ public class TaskActivity extends AppCompatActivity {
         @Override
         public void run() {
             try {
-                // 设置分享用户ID
-                logger.accept("\nRUN: 设置分享用户ID");
-                setupShareUserHids();
+                if (userList.isEmpty()) {
+                    logger.accept("🚨 用户列表为空，请先添加账号！\n");
+                } else {
+                    // 显示总任务数
+                    logger.accept(String.format(Locale.getDefault(), "共有 %d 个用户任务待执行", userList.size()));
 
-                logger.accept(String.format(Locale.getDefault(), "\nRUN: 执行任务, 共 %d 个账号", users.size()));
-                for (User user : users) {
-                    try {
-                        checkShouldStop();
-                        currentUserIndex++;
-                        if (currentUserIndex > 1) {
-                            // 延时 5 - 10 秒
-                            logger.accept("进行下一个账号, 等待 5-10 秒...");
+                    // 设置分享用户ID
+                    logger.accept("\nRUN: 设置分享用户ID");
+                    setupShareUserHids();
+
+                    logger.accept(String.format(Locale.getDefault(), "\nRUN: 执行任务, 共 %d 个账号", userList.size()));
+                    for (User user : userList) {
+                        try {
+                            checkShouldStop();
+                            currentUserIndex++;
+                            if (currentUserIndex > 1) {
+                                // 延时 5 - 10 秒
+                                logger.accept("进行下一个账号, 等待 5-10 秒...");
+                                TimeUnit.MILLISECONDS.sleep(5000 + new Random().nextInt(5000));
+                            }
+
+                            checkShouldStop();
+                            logger.accept(String.format(Locale.getDefault(), "\n======> 第 %d 个账号", currentUserIndex));
+                            executeUserTask(user);
+                        } catch (InterruptedException e) {
+                            throw e;
+                        } catch (Exception e) {
+                            logger.accept("执行任务出错: " + e.getMessage());
+                        }
+                    }
+
+                    logger.accept(String.format(Locale.getDefault(), "\nRUN: 积分详情, 共 %d 个账号", userList.size()));
+                    logger.accept("\n============ 积分详情 ============");
+                    for (int i = 0; i < userList.size(); i++) {
+                        User user = userList.get(i);
+                        if (i > 0) {
+                            logger.accept("\n进行下一个账号, 等待 5-10 秒...");
                             TimeUnit.MILLISECONDS.sleep(5000 + new Random().nextInt(5000));
                         }
 
-                        checkShouldStop();
-                        logger.accept(String.format(Locale.getDefault(), "\n======> 第 %d 个账号", currentUserIndex));
-                        executeUserTask(user);
-                    } catch (InterruptedException e) {
-                        throw e;
-                    } catch (Exception e) {
-                        logger.accept("执行任务出错: " + e.getMessage());
+                        logger.accept(String.format(Locale.getDefault(), "\n======== ▷ 第 %d 个账号 ◁ ========", i + 1));
+                        logger.accept(String.format("👻 用户名: %s | 手机号: %s", user.getNickname(), user.getMaskedPhone()));
+
+                        // 获取积分详情
+                        getScoreDetails(user);
                     }
                 }
-
-                logger.accept(String.format(Locale.getDefault(), "\nRUN: 积分详情, 共 %d 个账号", users.size()));
-                logger.accept("\n============ 积分详情 ============");
-                for (int i = 0; i < users.size(); i++) {
-                    User user = users.get(i);
-                    if (i > 0) {
-                        logger.accept("\n进行下一个账号, 等待 5-10 秒...");
-                        TimeUnit.MILLISECONDS.sleep(5000 + new Random().nextInt(5000));
-                    }
-
-                    logger.accept(String.format(Locale.getDefault(), "\n======== ▷ 第 %d 个账号 ◁ ========", i + 1));
-                    logger.accept(String.format("👻 用户名: %s | 手机号: %s", user.getNickname(), user.getMaskedPhone()));
-
-                    // 获取积分详情
-                    getScoreDetails(user);
-                }
-
-                onComplete.run();
             } catch (InterruptedException e) {
                 logger.accept("🚨 任务被中断: " + e.getMessage());
             } finally {
-                logger.accept("🚨 任务已停止");
+                logger.accept("🚨 任务已停止，脚本结束。");
                 stopTask();
                 onComplete.run();
             }
@@ -268,19 +265,19 @@ public class TaskActivity extends AppCompatActivity {
          */
         private void setupShareUserHids() {
             // 如果只有一个用户或没有用户，使用备用 hid
-            if (users.size() <= 1) {
-                for (User user : users) {
+            if (userList.size() <= 1) {
+                for (User user : userList) {
                     user.setShareUserHid(getBackupShareHid(user.getHid()));
                 }
                 return;
             }
 
             // 多个用户时，使用上一个用户的 hid
-            for (int i = 0; i < users.size(); i++) {
-                User currentUser = users.get(i);
+            for (int i = 0; i < userList.size(); i++) {
+                User currentUser = userList.get(i);
                 // 获取上一个用户的索引（第一个用户的上一个是最后一个）
-                int prevIndex = (i - 1 >= 0) ? i - 1 : users.size() - 1;
-                User prevUser = users.get(prevIndex);
+                int prevIndex = (i - 1 >= 0) ? i - 1 : userList.size() - 1;
+                User prevUser = userList.get(prevIndex);
 
                 // 如果上一个用户不是自己，使用上一个用户的 hid
                 if (!prevUser.getHid().equals(currentUser.getHid())) {

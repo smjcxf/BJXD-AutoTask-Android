@@ -19,18 +19,39 @@ public class StorageUtil {
     private static final String KEY_AI_MODEL = "ai_model";
     private static final String KEY_AI_REQUEST_PARAMS = "ai_request_params";
     private static final String KEY_MANUAL_ANSWER = "manual_answer";
+    private static final String KEY_QINGLONG_REQUEST_URL = "qinglong_request_url";
+    private static final String KEY_QINGLONG_CLIENT_ID = "qinglong_client_id";
+    private static final String KEY_QINGLONG_CLIENT_SECRET = "qinglong_client_secret";
+    private static volatile StorageUtil instance;
     private final SharedPreferences prefs;
     private final Gson gson;
 
     /**
-     * 构造函数
+     * 私有化构造函数，并使用 ApplicationContext 避免泄漏
      *
-     * @param context 上下文对象
+     * @param context 应用上下文
      */
-    public StorageUtil(Context context) {
-        prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+    private StorageUtil(Context context) {
+        prefs = context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         gson = new Gson();
         migrateAiSettings();
+    }
+
+    /**
+     * 单例模式获取实例
+     *
+     * @param context 应用上下文
+     * @return 返回 StorageUtil 实例
+     */
+    public static StorageUtil getInstance(Context context) {
+        if (instance == null) {
+            synchronized (StorageUtil.class) {
+                if (instance == null) {
+                    instance = new StorageUtil(context);
+                }
+            }
+        }
+        return instance;
     }
 
     /**
@@ -162,7 +183,6 @@ public class StorageUtil {
         }
     }
 
-
     /**
      * 检查 AI 相关配置是否完整。
      *
@@ -173,6 +193,18 @@ public class StorageUtil {
         String aiRequestUrl = getAiRequestUrl();
         String aiModel = getAiModel();
         return !aiApiKey.isEmpty() && !aiRequestUrl.isEmpty() && !aiModel.isEmpty();
+    }
+
+    /**
+     * 检查青龙面板配置是否完整。
+     *
+     * @return 如果青龙面板地址、CLIENT_ID 和 CLIENT_SECRET 都已设置（非空），则返回 true；否则返回 false。
+     */
+    public boolean checkQinglongSettings() {
+        String qinglongRequestUrl = getQinglongRequestUrl();
+        String qinglongClientId = getQinglongClientId();
+        String qinglongClientSecret = getQinglongClientSecret();
+        return !qinglongRequestUrl.isEmpty() && !qinglongClientId.isEmpty() && !qinglongClientSecret.isEmpty();
     }
 
     /**
@@ -194,6 +226,60 @@ public class StorageUtil {
     }
 
     /**
+     * 获取青龙面板地址
+     *
+     * @return 青龙面板地址
+     */
+    public String getQinglongRequestUrl() {
+        return prefs.getString(KEY_QINGLONG_REQUEST_URL, "");
+    }
+
+    /**
+     * 保存青龙面板地址
+     *
+     * @param qinglongRequestUrl 青龙面板地址
+     */
+    public void saveQinglongRequestUrl(String qinglongRequestUrl) {
+        prefs.edit().putString(KEY_QINGLONG_REQUEST_URL, qinglongRequestUrl).apply();
+    }
+
+    /**
+     * 获取青龙应用 CLIENT_ID
+     *
+     * @return 青龙应用 CLIENT_ID
+     */
+    public String getQinglongClientId() {
+        return prefs.getString(KEY_QINGLONG_CLIENT_ID, "");
+    }
+
+    /**
+     * 保存青龙应用 CLIENT_ID
+     *
+     * @param qinglongClientId 青龙应用 CLIENT_ID
+     */
+    public void saveQinglongClientId(String qinglongClientId) {
+        prefs.edit().putString(KEY_QINGLONG_CLIENT_ID, qinglongClientId).apply();
+    }
+
+    /**
+     * 获取青龙应用 CLIENT_SECRET
+     *
+     * @return 青龙应用 CLIENT_SECRET
+     */
+    public String getQinglongClientSecret() {
+        return prefs.getString(KEY_QINGLONG_CLIENT_SECRET, "");
+    }
+
+    /**
+     * 保存青龙应用 CLIENT_SECRET
+     *
+     * @param qinglongClientSecret 青龙应用 CLIENT_SECRET
+     */
+    public void saveQinglongClientSecret(String qinglongClientSecret) {
+        prefs.edit().putString(KEY_QINGLONG_CLIENT_SECRET, qinglongClientSecret).apply();
+    }
+
+    /**
      * 添加或更新用户
      *
      * @param user 用户对象
@@ -204,9 +290,9 @@ public class StorageUtil {
 
         // 检查是否已存在
         int position = userList.indexOf(user);
-        if (position == -1){
+        if (position == -1) {
             userList.add(user);
-        }else{
+        } else {
             userList.set(position, user);
         }
         saveUserList(userList);

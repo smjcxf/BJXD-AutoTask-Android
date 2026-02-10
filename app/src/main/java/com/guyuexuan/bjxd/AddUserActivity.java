@@ -92,7 +92,7 @@ public class AddUserActivity extends AppCompatActivity {
                 // 在主线程中更新 UI
                 runOnUiThread(() -> {
                     // 保存用户信息
-                    StorageUtil storageUtil = new StorageUtil(AddUserActivity.this);
+                    StorageUtil storageUtil = StorageUtil.getInstance(AddUserActivity.this);
                     int position = storageUtil.saveUser(user);
                     // 创建结果 Intent
                     Intent resultIntent = new Intent();

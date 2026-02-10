@@ -11,7 +11,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Objects;
 
-public class User implements Serializable{
+public class User implements Serializable {
     private final String token;
     private final String nickname;
     private final String phone;

@@ -27,34 +27,81 @@
         android:id="@+id/ll_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="?android:attr/windowBackground"
+        android:elevation="8dp"
+        android:gravity="center"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:padding="8dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_add_user"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_margin="4dp"
             android:layout_weight="1"
-            android:text="添加账号" />
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="12dp"
+            android:text="账号"
+            android:textSize="14sp"
+            app:icon="@android:drawable/ic_menu_add"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
+            app:iconSize="18dp" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_config"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
+            android:layout_margin="4dp"
             android:layout_weight="1"
-            android:text="配置" />
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="12dp"
+            android:text="配置"
+            android:textSize="14sp"
+            app:icon="@android:drawable/ic_menu_preferences"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
+            app:iconSize="18dp" />
 
-        <Button
-            android:id="@+id/btn_start_task"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_sync_qinglong"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_margin="4dp"
             android:layout_weight="1"
-            android:text="开始任务" />
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="12dp"
+            android:text="青龙"
+            android:textSize="14sp"
+            app:icon="@android:drawable/ic_menu_rotate"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
+            app:iconSize="18dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_start_task"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="4dp"
+            android:layout_weight="1"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="12dp"
+            android:text="任务"
+            android:textSize="14sp"
+            app:icon="@android:drawable/ic_menu_slideshow"
+            app:iconGravity="textStart"
+            app:iconPadding="4dp"
+            app:iconSize="18dp" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

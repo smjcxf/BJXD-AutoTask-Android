@@ -5,7 +5,6 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.Toast;
@@ -15,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.IntentCompat;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -35,17 +35,10 @@ public class MainActivity extends AppCompatActivity {
             Intent data = result.getData();
             if (data != null) {
                 // 从 Intent 中获取返回的 User 对象
-                User user;
-                // 2. 使用新的 API，并处理 Android 13 以下的兼容性
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    user = data.getSerializableExtra(EXTRA_USER, User.class);
-                } else {
-                    // 对于旧版本，继续使用过时的方法
-                    user = (User) data.getSerializableExtra(EXTRA_USER);
-                }
-                int position = data.getIntExtra(EXTRA_POSITION, -1);
+                User user = IntentCompat.getSerializableExtra(data, EXTRA_USER, User.class);
                 // 刷新用户列表
                 if (user != null) { // 3. 最好增加一个非空判断
+                    int position = data.getIntExtra(EXTRA_POSITION, -1);
                     adapter.saveItem(user, position);
                 }
             }
@@ -63,12 +56,13 @@ public class MainActivity extends AppCompatActivity {
         setTitle(AppUtils.getAppNameWithVersion(this));
 
         // 初始化 StorageUtil
-        StorageUtil storageUtil = new StorageUtil(this);
+        StorageUtil storageUtil = StorageUtil.getInstance(this);
 
         // 获取控件
         RecyclerView recyclerView = findViewById(R.id.rv_user_list);
         Button addUserButton = findViewById(R.id.btn_add_user);
         Button configButton = findViewById(R.id.btn_config);
+        Button startSyncButton = findViewById(R.id.btn_sync_qinglong);
         Button startTaskButton = findViewById(R.id.btn_start_task);
 
 
@@ -78,12 +72,11 @@ public class MainActivity extends AppCompatActivity {
 
         addUserButton.setOnClickListener(v -> addUserLauncher.launch(new Intent(this, AddUserActivity.class)));
         configButton.setOnClickListener(v -> startActivity(new Intent(this, ConfigActivity.class)));
+        startSyncButton.setOnClickListener(v -> {
+            startActivity(new Intent(this, SyncActivity.class));
+        });
         startTaskButton.setOnClickListener(v -> {
-            if (adapter.getItemCount() == 0) {
-                Toast.makeText(this, "请先添加账号！", Toast.LENGTH_SHORT).show();
-            } else {
-                startActivity(new Intent(this, TaskActivity.class));
-            }
+            startActivity(new Intent(this, TaskActivity.class));
         });
 
         // 添加拖拽排序功能

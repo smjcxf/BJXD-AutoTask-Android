@@ -18,6 +18,9 @@ public class ConfigActivity extends AppCompatActivity {
     private String aiRequestUrl;
     private String aiModel;
     private String aiRequestParams;
+    private String qinglongRequestUrl;
+    private String qinglongClientId;
+    private String qinglongClientSecret;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,7 +30,7 @@ public class ConfigActivity extends AppCompatActivity {
         // 设置标题
         setTitle(AppUtils.getAppNameWithVersion(this));
 
-        storageUtil = new StorageUtil(this);
+        storageUtil = StorageUtil.getInstance(this);
 
         SwitchMaterial manualAnswerSwitch = findViewById(R.id.manualAnswerSwitch);
 
@@ -35,6 +38,9 @@ public class ConfigActivity extends AppCompatActivity {
         TextInputEditText aiRequestUrlInput = findViewById(R.id.aiRequestUrlInput);
         TextInputEditText aiModelInput = findViewById(R.id.aiModelInput);
         TextInputEditText aiRequestParamsInput = findViewById(R.id.aiRequestParamsInput);
+        TextInputEditText qinglongRequestUrlInput = findViewById(R.id.qinglongRequestParamsInput);
+        TextInputEditText qinglongClientIdInput = findViewById(R.id.qinglongClientIdInput);
+        TextInputEditText qinglongClientSecretInput = findViewById(R.id.qinglongClientSecretInput);
 
         manualAnswerSwitch.setChecked(storageUtil.isManualAnswer());
 
@@ -46,6 +52,13 @@ public class ConfigActivity extends AppCompatActivity {
         aiRequestUrlInput.setText(aiRequestUrl);
         aiModelInput.setText(aiModel);
         aiRequestParamsInput.setText(aiRequestParams);
+
+        qinglongRequestUrl = storageUtil.getQinglongRequestUrl();
+        qinglongClientId = storageUtil.getQinglongClientId();
+        qinglongClientSecret = storageUtil.getQinglongClientSecret();
+        qinglongRequestUrlInput.setText(qinglongRequestUrl);
+        qinglongClientIdInput.setText(qinglongClientId);
+        qinglongClientSecretInput.setText(qinglongClientSecret);
 
         findViewById(R.id.saveButton).setOnClickListener(v -> {
             // 答题：手动答题
@@ -59,6 +72,13 @@ public class ConfigActivity extends AppCompatActivity {
             storageUtil.saveAiRequestUrl(aiRequestUrl);
             storageUtil.saveAiModel(aiModel);
             storageUtil.saveAiRequestParams(aiRequestParams);
+            // 青龙面板配置
+            qinglongRequestUrl = Objects.requireNonNull(qinglongRequestUrlInput.getText()).toString().trim();
+            qinglongClientId = Objects.requireNonNull(qinglongClientIdInput.getText()).toString().trim();
+            qinglongClientSecret = Objects.requireNonNull(qinglongClientSecretInput.getText()).toString().trim();
+            storageUtil.saveQinglongRequestUrl(qinglongRequestUrl);
+            storageUtil.saveQinglongClientId(qinglongClientId);
+            storageUtil.saveQinglongClientSecret(qinglongClientSecret);
             // toast 提示保存成功
             Toast.makeText(this, "保存成功", Toast.LENGTH_SHORT).show();
             finish();

@@ -4,7 +4,9 @@ import androidx.annotation.NonNull;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.guyuexuan.bjxd.model.QinglongEnv;
 import com.guyuexuan.bjxd.model.TaskStatus;
 import com.guyuexuan.bjxd.model.User;
 
@@ -45,9 +47,9 @@ public class ApiUtil {
             .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES)) // 最大 1 个连接，保持 5 分钟
             .build();
     // 新增：为 AI 请求创建一个专用的、长超时的 Client
-    private static final OkHttpClient aiClient = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)      // 连接超时可以适当放宽
-            .readTimeout(5, TimeUnit.MINUTES)        // 读取超时设置为3分钟，等待AI响应
-            .writeTimeout(5, TimeUnit.MINUTES)       // 写入超时也设置为3分钟
+    private static final OkHttpClient aiClient = new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS) // 连接超时可以适当放宽
+            .readTimeout(5, TimeUnit.MINUTES) // 读取超时设置为3分钟，等待AI响应
+            .writeTimeout(5, TimeUnit.MINUTES) // 写入超时也设置为3分钟
             .retryOnConnectionFailure(true).build();
 
     private static final Gson gson = new Gson();
@@ -68,6 +70,9 @@ public class ApiUtil {
     private static final String API_TASK_SCORE = "/v1/app/score";
     private static final String API_QUESTION_INFO = "/v1/app/special/daily/ask_info";
     private static final String API_QUESTION_SUBMIT = "/v1/app/special/daily/ask_answer";
+
+    private static final String API_QINGLONG_AUTH = "/open/auth/token";
+    private static final String API_QINGLONG_ENVS = "/open/envs";
 
     /**
      * 获取带有默认请求头的Request.Builder
@@ -485,6 +490,248 @@ public class ApiUtil {
                 return jsonObject.getAsJsonArray("choices").get(0).getAsJsonObject().getAsJsonObject("message").get("content").getAsString();
             } else {
                 throw new IOException("请求失败: " + response.code());
+            }
+        }
+    }
+
+    /**
+     * 获取青龙面板认证令牌
+     * <p>
+     * 通过客户端ID和客户端密钥调用青龙面板API获取访问令牌，用于后续青龙面板操作的认证
+     * </p>
+     *
+     * @param base_url      青龙面板基础URL
+     * @param client_id     青龙面板客户端ID
+     * @param client_secret 青龙面板客户端密钥
+     * @return 青龙面板访问令牌
+     * @throws IOException 如果网络请求失败或服务器返回错误
+     */
+    public static String getQinglongToken(String base_url, String client_id, String client_secret) throws IOException {
+        // 构建完整 URL，包含 client_id 和 client_secret 参数
+        String url = base_url + API_QINGLONG_AUTH + "?client_id=" + client_id + "&client_secret=" + client_secret;
+
+        // 创建请求，添加 Accept 头
+        Request request = new Request.Builder().url(url).get().addHeader("Accept", "application/json").build();
+
+        // 使用 client 发送请求
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful()) {
+                String json = response.body().string();
+                System.out.println("getQinglongToken API Response: " + json);
+
+                // 解析 JSON 响应
+                JsonObject jsonObject = gson.fromJson(json, JsonObject.class);
+                if (jsonObject.get("code").getAsInt() == 200) {
+                    // 提取 token 并返回
+                    JsonObject data = jsonObject.getAsJsonObject("data");
+                    return data.get("token").getAsString();
+                } else {
+                    // 处理业务错误
+                    throw new IOException("API Error: " + jsonObject.get("code").getAsString() + " - " + (jsonObject.has("msg") ? jsonObject.get("msg").getAsString() : "Unknown error"));
+                }
+            } else {
+                // 处理 HTTP 错误
+                throw new IOException("Request failed: " + response.code());
+            }
+        }
+    }
+
+    /**
+     * 获取青龙面板环境变量
+     * <p>
+     * 调用青龙面板API获取所有包含"BJXD"关键字的环境变量，用于管理北京现代相关的环境配置
+     * </p>
+     *
+     * @param base_url    青龙面板基础URL
+     * @param token       青龙面板访问令牌
+     * @param searchValue 搜索关键字
+     * @return 环境变量数组，包含所有符合条件的环境变量
+     * @throws IOException 如果网络请求失败或服务器返回错误
+     */
+    public static QinglongEnv[] getQinglongEnvList(String base_url, String token, String searchValue) throws IOException {
+        // 构建完整 URL，包含 searchValue 参数
+        String url = base_url + API_QINGLONG_ENVS + "?searchValue=" + searchValue;
+
+        // 创建请求，添加 Accept 头和 Authorization 头
+        Request request = new Request.Builder().url(url).get().addHeader("Accept", "application/json").addHeader("Authorization", "Bearer " + token).build();
+
+        // 使用 client 发送请求
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful()) {
+                String json = response.body().string();
+                System.out.println("getQinglongEnvs API Response: " + json);
+
+                // 解析 JSON 响应
+                JsonObject jsonObject = gson.fromJson(json, JsonObject.class);
+                if (jsonObject.get("code").getAsInt() == 200) {
+                    // 获取 data 节点
+                    JsonElement dataElement = jsonObject.get("data");
+
+                    // 关键：直接将 dataElement 转换为 QinglongEnv 数组
+                    return gson.fromJson(dataElement, QinglongEnv[].class);
+                } else {
+                    // 处理业务错误
+                    throw new IOException("API Error: " + jsonObject.get("code").getAsString() + " - " + (jsonObject.has("msg") ? jsonObject.get("msg").getAsString() : "Unknown error"));
+                }
+            } else {
+                // 处理 HTTP 错误
+                throw new IOException("Request failed: " + response.code());
+            }
+        }
+    }
+
+    /**
+     * 创建青龙面板环境变量
+     * <p>
+     * 调用青龙面板API创建新的环境变量，用于添加北京现代相关的配置信息
+     * </p>
+     *
+     * @param base_url 青龙面板基础URL
+     * @param token    青龙面板访问令牌
+     * @param name     环境变量名称
+     * @param value    环境变量值
+     * @param remarks  环境变量备注
+     * @return 创建的环境变量对象
+     * @throws IOException 如果网络请求失败或服务器返回错误
+     */
+    public static QinglongEnv createQinglongEnv(String base_url, String token, String name, String value, String remarks) throws IOException {
+        // 构建完整 URL
+        String url = base_url + API_QINGLONG_ENVS;
+
+        // 创建请求体 JSON 数组
+        JsonArray jsonArray = new JsonArray();
+        JsonObject envObj = new JsonObject();
+        envObj.addProperty("name", name);
+        envObj.addProperty("value", value);
+        envObj.addProperty("remarks", remarks);
+        jsonArray.add(envObj);
+
+        // 创建请求体
+        RequestBody body = RequestBody.create(jsonArray.toString(), MediaType.parse("application/json; charset=utf-8"));
+
+        // 创建请求，添加必要的头信息
+        Request request = new Request.Builder().url(url).post(body).addHeader("Content-Type", "application/json").addHeader("Accept", "application/json").addHeader("Authorization", "Bearer " + token).build();
+
+        // 使用 client 发送请求
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful()) {
+                String json = response.body().string();
+                System.out.println("createQinglongEnv API Response: " + json);
+
+                // 解析 JSON 响应
+                JsonObject jsonObject = gson.fromJson(json, JsonObject.class);
+                if (jsonObject.get("code").getAsInt() == 200) {
+                    // 获取 data 数组并转换为 QinglongEnv 对象
+                    JsonArray dataArray = jsonObject.getAsJsonArray("data");
+                    if (!dataArray.isEmpty()) {
+                        return gson.fromJson(dataArray.get(0), QinglongEnv.class);
+                    } else {
+                        throw new IOException("API Error: No data returned");
+                    }
+                } else {
+                    // 处理业务错误
+                    throw new IOException("API Error: " + jsonObject.get("code").getAsString() + " - " + (jsonObject.has("msg") ? jsonObject.get("msg").getAsString() : "Unknown error"));
+                }
+            } else {
+                // 处理 HTTP 错误
+                throw new IOException("Request failed: " + response.code());
+            }
+        }
+    }
+
+    /**
+     * 更新青龙面板环境变量
+     * <p>
+     * 调用青龙面板API更新已有的环境变量，用于修改北京现代相关的配置信息
+     * </p>
+     *
+     * @param base_url 青龙面板基础URL
+     * @param token    青龙面板访问令牌
+     * @param id       环境变量ID
+     * @param name     环境变量名称
+     * @param value    环境变量值
+     * @param remarks  环境变量备注
+     * @return 更新后的环境变量对象
+     * @throws IOException 如果网络请求失败或服务器返回错误
+     */
+    public static QinglongEnv updateQinglongEnv(String base_url, String token, long id, String name, String value, String remarks) throws IOException {
+        // 构建完整 URL
+        String url = base_url + API_QINGLONG_ENVS;
+
+        // 创建请求体 JSON 对象
+        JsonObject jsonBody = new JsonObject();
+        jsonBody.addProperty("id", id);
+        jsonBody.addProperty("name", name);
+        jsonBody.addProperty("value", value);
+        jsonBody.addProperty("remarks", remarks);
+
+        // 创建请求体
+        RequestBody body = RequestBody.create(jsonBody.toString(), MediaType.parse("application/json; charset=utf-8"));
+
+        // 创建请求，添加必要的头信息
+        Request request = new Request.Builder().url(url).put(body).addHeader("Content-Type", "application/json").addHeader("Accept", "application/json").addHeader("Authorization", "Bearer " + token).build();
+
+        // 使用 client 发送请求
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful()) {
+                String json = response.body().string();
+                System.out.println("updateQinglongEnv API Response: " + json);
+
+                // 解析 JSON 响应
+                JsonObject jsonObject = gson.fromJson(json, JsonObject.class);
+                if (jsonObject.get("code").getAsInt() == 200) {
+                    // 获取 data 对象并转换为 QinglongEnv 对象
+                    JsonObject dataObject = jsonObject.getAsJsonObject("data");
+                    return gson.fromJson(dataObject, QinglongEnv.class);
+                } else {
+                    // 处理业务错误
+                    throw new IOException("API Error: " + jsonObject.get("code").getAsString() + " - " + (jsonObject.has("msg") ? jsonObject.get("msg").getAsString() : "Unknown error"));
+                }
+            } else {
+                // 处理 HTTP 错误
+                throw new IOException("Request failed: " + response.code());
+            }
+        }
+    }
+
+    /**
+     * 删除青龙面板环境变量
+     * <p>
+     * 调用青龙面板API删除指定ID的环境变量，用于移除北京现代相关的配置信息
+     * </p>
+     *
+     * @param base_url 青龙面板基础URL
+     * @param token    青龙面板访问令牌
+     * @param id       要删除的环境变量ID
+     * @return 是否删除成功
+     * @throws IOException 如果网络请求失败或服务器返回错误
+     */
+    public static boolean deleteQinglongEnv(String base_url, String token, long id) throws IOException {
+        // 构建完整 URL
+        String url = base_url + API_QINGLONG_ENVS;
+
+        // 创建请求体 JSON 数组，只包含单个 id
+        JsonArray jsonArray = new JsonArray();
+        jsonArray.add(id);
+
+        // 创建请求体
+        RequestBody body = RequestBody.create(jsonArray.toString(), MediaType.parse("application/json; charset=utf-8"));
+
+        // 创建请求，添加必要的头信息
+        Request request = new Request.Builder().url(url).delete(body).addHeader("Content-Type", "application/json").addHeader("Accept", "application/json").addHeader("Authorization", "Bearer " + token).build();
+
+        // 使用 client 发送请求
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful()) {
+                String json = response.body().string();
+                System.out.println("deleteQinglongEnv API Response: " + json);
+
+                // 解析 JSON 响应
+                JsonObject jsonObject = gson.fromJson(json, JsonObject.class);
+                return jsonObject.get("code").getAsInt() == 200;
+            } else {
+                // 处理 HTTP 错误
+                throw new IOException("Request failed: " + response.code());
             }
         }
     }
